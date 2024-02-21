@@ -1,8 +1,8 @@
 #!/bin/bash -e
 APPTAINER_OPTS=
 IGNORE_MOUNTS="/pnfs"
-UNPACKED_IMAGE_DEFAULT="/cvmfs/unpacked.cern.ch/gcr.io/cms-nanoAOD/correctionlib"
-DOCKER_IMAGE_DEFAULT="docker://gcr.io/cms-nanoAOD/correctionlib"
+UNPACKED_IMAGE_DEFAULT="/cvmfs/unpacked.cern.ch/ghcr.io/cms-nanoAOD/correctionlib"
+DOCKER_IMAGE_DEFAULT="docker://ghcr.io/cms-nanoAOD/correctionlib"
 APPTAINER_OPTS_ENV="--env PYTHONPATH=/app/.venv/lib/python3.11/site-packages"
 CORRECTIONLIB_VERSION_DEFAULT="latest"
 while [ "$#" != 0 ]; do
