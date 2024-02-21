@@ -1,0 +1,843 @@
+{
+    "$defs": {
+        "Binning": {
+            "additionalProperties": false,
+            "description": "1-dimensional binning in an input variable",
+            "properties": {
+                "nodetype": {
+                    "const": "binning",
+                    "title": "Nodetype"
+                },
+                "input": {
+                    "description": "The name of the correction input variable this binning applies to",
+                    "title": "Input",
+                    "type": "string"
+                },
+                "edges": {
+                    "anyOf": [
+                        {
+                            "items": {
+                                "type": "number"
+                            },
+                            "type": "array"
+                        },
+                        {
+                            "$ref": "#/$defs/UniformBinning"
+                        }
+                    ],
+                    "description": "Edges of the binning, either as a list of monotonically increasing floats or as an instance of UniformBinning. edges[i] <= x < edges[i+1] => f(x, ...) = content[i](...)",
+                    "title": "Edges"
+                },
+                "content": {
+                    "items": {
+                        "anyOf": [
+                            {
+                                "$ref": "#/$defs/Binning"
+                            },
+                            {
+                                "$ref": "#/$defs/MultiBinning"
+                            },
+                            {
+                                "$ref": "#/$defs/Category"
+                            },
+                            {
+                                "$ref": "#/$defs/Formula"
+                            },
+                            {
+                                "$ref": "#/$defs/FormulaRef"
+                            },
+                            {
+                                "$ref": "#/$defs/Transform"
+                            },
+                            {
+                                "$ref": "#/$defs/HashPRNG"
+                            },
+                            {
+                                "type": "number"
+                            }
+                        ]
+                    },
+                    "title": "Content",
+                    "type": "array"
+                },
+                "flow": {
+                    "anyOf": [
+                        {
+                            "$ref": "#/$defs/Binning"
+                        },
+                        {
+                            "$ref": "#/$defs/MultiBinning"
+                        },
+                        {
+                            "$ref": "#/$defs/Category"
+                        },
+                        {
+                            "$ref": "#/$defs/Formula"
+                        },
+                        {
+                            "$ref": "#/$defs/FormulaRef"
+                        },
+                        {
+                            "$ref": "#/$defs/Transform"
+                        },
+                        {
+                            "$ref": "#/$defs/HashPRNG"
+                        },
+                        {
+                            "type": "number"
+                        },
+                        {
+                            "enum": [
+                                "clamp",
+                                "error"
+                            ],
+                            "type": "string"
+                        }
+                    ],
+                    "description": "Overflow behavior for out-of-bounds values",
+                    "title": "Flow"
+                }
+            },
+            "required": [
+                "nodetype",
+                "input",
+                "edges",
+                "content",
+                "flow"
+            ],
+            "title": "Binning",
+            "type": "object"
+        },
+        "Category": {
+            "additionalProperties": false,
+            "description": "A categorical lookup",
+            "properties": {
+                "nodetype": {
+                    "const": "category",
+                    "title": "Nodetype"
+                },
+                "input": {
+                    "description": "The name of the correction input variable this category node applies to",
+                    "title": "Input",
+                    "type": "string"
+                },
+                "content": {
+                    "items": {
+                        "$ref": "#/$defs/CategoryItem"
+                    },
+                    "title": "Content",
+                    "type": "array"
+                },
+                "default": {
+                    "anyOf": [
+                        {
+                            "$ref": "#/$defs/Binning"
+                        },
+                        {
+                            "$ref": "#/$defs/MultiBinning"
+                        },
+                        {
+                            "$ref": "#/$defs/Category"
+                        },
+                        {
+                            "$ref": "#/$defs/Formula"
+                        },
+                        {
+                            "$ref": "#/$defs/FormulaRef"
+                        },
+                        {
+                            "$ref": "#/$defs/Transform"
+                        },
+                        {
+                            "$ref": "#/$defs/HashPRNG"
+                        },
+                        {
+                            "type": "number"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "title": "Default"
+                }
+            },
+            "required": [
+                "nodetype",
+                "input",
+                "content"
+            ],
+            "title": "Category",
+            "type": "object"
+        },
+        "CategoryItem": {
+            "additionalProperties": false,
+            "description": "A key-value pair\n\nThe key type must match the type of the Category input variable",
+            "properties": {
+                "key": {
+                    "anyOf": [
+                        {
+                            "type": "integer"
+                        },
+                        {
+                            "type": "string"
+                        }
+                    ],
+                    "title": "Key"
+                },
+                "value": {
+                    "anyOf": [
+                        {
+                            "$ref": "#/$defs/Binning"
+                        },
+                        {
+                            "$ref": "#/$defs/MultiBinning"
+                        },
+                        {
+                            "$ref": "#/$defs/Category"
+                        },
+                        {
+                            "$ref": "#/$defs/Formula"
+                        },
+                        {
+                            "$ref": "#/$defs/FormulaRef"
+                        },
+                        {
+                            "$ref": "#/$defs/Transform"
+                        },
+                        {
+                            "$ref": "#/$defs/HashPRNG"
+                        },
+                        {
+                            "type": "number"
+                        }
+                    ],
+                    "title": "Value"
+                }
+            },
+            "required": [
+                "key",
+                "value"
+            ],
+            "title": "CategoryItem",
+            "type": "object"
+        },
+        "CompoundCorrection": {
+            "additionalProperties": false,
+            "description": "A compound correction\n\nThis references other Correction objects in a CorrectionSet and can\nprovide a canned recipe for serial application of dependent corrections.\nFor example, given corrections corr1(x, y) and corr2(x', z), where\nx' = corr1(x, y) * x, the compound correction\ncorr(x, y, z) = corr2(x * corr1(x, y), z)\ncan be expressed with reference to its component corrections.",
+            "properties": {
+                "name": {
+                    "title": "Name",
+                    "type": "string"
+                },
+                "description": {
+                    "anyOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "Detailed description of the correction stack",
+                    "title": "Description"
+                },
+                "inputs": {
+                    "description": "The function signature of the correction",
+                    "items": {
+                        "$ref": "#/$defs/Variable"
+                    },
+                    "title": "Inputs",
+                    "type": "array"
+                },
+                "output": {
+                    "allOf": [
+                        {
+                            "$ref": "#/$defs/Variable"
+                        }
+                    ],
+                    "description": "Output type for this correction"
+                },
+                "inputs_update": {
+                    "description": "Names of the input variables to update with the output of the previous correction",
+                    "items": {
+                        "type": "string"
+                    },
+                    "title": "Inputs Update",
+                    "type": "array"
+                },
+                "input_op": {
+                    "description": "How to accumulate changes in the input variables",
+                    "enum": [
+                        "+",
+                        "*",
+                        "/"
+                    ],
+                    "title": "Input Op",
+                    "type": "string"
+                },
+                "output_op": {
+                    "description": "How to accumulate changes in the output variable",
+                    "enum": [
+                        "+",
+                        "*",
+                        "/",
+                        "last"
+                    ],
+                    "title": "Output Op",
+                    "type": "string"
+                },
+                "stack": {
+                    "description": "Names of the component corrections. Each component should have a subset of the inputs listed in this object.",
+                    "items": {
+                        "type": "string"
+                    },
+                    "title": "Stack",
+                    "type": "array"
+                }
+            },
+            "required": [
+                "name",
+                "inputs",
+                "output",
+                "inputs_update",
+                "input_op",
+                "output_op",
+                "stack"
+            ],
+            "title": "CompoundCorrection",
+            "type": "object"
+        },
+        "Correction": {
+            "additionalProperties": false,
+            "properties": {
+                "name": {
+                    "title": "Name",
+                    "type": "string"
+                },
+                "description": {
+                    "anyOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "Detailed description of the correction",
+                    "title": "Description"
+                },
+                "version": {
+                    "description": "Some value that may increase over time due to bugfixes",
+                    "title": "Version",
+                    "type": "integer"
+                },
+                "inputs": {
+                    "description": "The function signature of the correction",
+                    "items": {
+                        "$ref": "#/$defs/Variable"
+                    },
+                    "title": "Inputs",
+                    "type": "array"
+                },
+                "output": {
+                    "allOf": [
+                        {
+                            "$ref": "#/$defs/Variable"
+                        }
+                    ],
+                    "description": "Output type for this correction"
+                },
+                "generic_formulas": {
+                    "anyOf": [
+                        {
+                            "items": {
+                                "$ref": "#/$defs/Formula"
+                            },
+                            "type": "array"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "A list of common formulas that may be used\n\n        For corrections with many parameterized formulas that follow a regular pattern,\n        the expression and inputs can be declared once with a generic formula, deferring the parameter\n        declaration to the more lightweight FormulaRef nodes. This can speed up both loading and evaluation\n        of the correction object\n        ",
+                    "title": "Generic Formulas"
+                },
+                "data": {
+                    "anyOf": [
+                        {
+                            "$ref": "#/$defs/Binning"
+                        },
+                        {
+                            "$ref": "#/$defs/MultiBinning"
+                        },
+                        {
+                            "$ref": "#/$defs/Category"
+                        },
+                        {
+                            "$ref": "#/$defs/Formula"
+                        },
+                        {
+                            "$ref": "#/$defs/FormulaRef"
+                        },
+                        {
+                            "$ref": "#/$defs/Transform"
+                        },
+                        {
+                            "$ref": "#/$defs/HashPRNG"
+                        },
+                        {
+                            "type": "number"
+                        }
+                    ],
+                    "description": "The root content node",
+                    "title": "Data"
+                }
+            },
+            "required": [
+                "name",
+                "version",
+                "inputs",
+                "output",
+                "data"
+            ],
+            "title": "Correction",
+            "type": "object"
+        },
+        "Formula": {
+            "additionalProperties": false,
+            "description": "A general formula type",
+            "properties": {
+                "nodetype": {
+                    "const": "formula",
+                    "title": "Nodetype"
+                },
+                "expression": {
+                    "title": "Expression",
+                    "type": "string"
+                },
+                "parser": {
+                    "const": "TFormula",
+                    "title": "Parser"
+                },
+                "variables": {
+                    "description": "The names of the correction input variables this formula applies to",
+                    "items": {
+                        "type": "string"
+                    },
+                    "title": "Variables",
+                    "type": "array"
+                },
+                "parameters": {
+                    "anyOf": [
+                        {
+                            "items": {
+                                "type": "number"
+                            },
+                            "type": "array"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "Parameters, if the parser supports them (e.g. [0] for TFormula)",
+                    "title": "Parameters"
+                }
+            },
+            "required": [
+                "nodetype",
+                "expression",
+                "parser",
+                "variables"
+            ],
+            "title": "Formula",
+            "type": "object"
+        },
+        "FormulaRef": {
+            "additionalProperties": false,
+            "description": "A reference to one of the Correction generic_formula items, with specific parameters",
+            "properties": {
+                "nodetype": {
+                    "const": "formularef",
+                    "title": "Nodetype"
+                },
+                "index": {
+                    "description": "Index into the Correction.generic_formulas list",
+                    "minimum": 0,
+                    "title": "Index",
+                    "type": "integer"
+                },
+                "parameters": {
+                    "description": "Same interpretation as Formula.parameters",
+                    "items": {
+                        "type": "number"
+                    },
+                    "title": "Parameters",
+                    "type": "array"
+                }
+            },
+            "required": [
+                "nodetype",
+                "index",
+                "parameters"
+            ],
+            "title": "FormulaRef",
+            "type": "object"
+        },
+        "HashPRNG": {
+            "additionalProperties": false,
+            "description": "A node that generates a pseudorandom number deterministic in its inputs\n\nThe output distribution can be chosen from a set of fixed values,\ndownstream code could then shift and scale it as necessary.",
+            "properties": {
+                "nodetype": {
+                    "const": "hashprng",
+                    "title": "Nodetype"
+                },
+                "inputs": {
+                    "description": "The names of the input variables to use as entropy sources",
+                    "items": {
+                        "type": "string"
+                    },
+                    "minItems": 1,
+                    "title": "Inputs",
+                    "type": "array"
+                },
+                "distribution": {
+                    "description": "The output distribution to draw from",
+                    "enum": [
+                        "stdflat",
+                        "stdnormal",
+                        "normal"
+                    ],
+                    "title": "Distribution",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "nodetype",
+                "inputs",
+                "distribution"
+            ],
+            "title": "HashPRNG",
+            "type": "object"
+        },
+        "MultiBinning": {
+            "additionalProperties": false,
+            "description": "N-dimensional rectangular binning",
+            "properties": {
+                "nodetype": {
+                    "const": "multibinning",
+                    "title": "Nodetype"
+                },
+                "inputs": {
+                    "description": "The names of the correction input variables this binning applies to",
+                    "items": {
+                        "type": "string"
+                    },
+                    "minItems": 1,
+                    "title": "Inputs",
+                    "type": "array"
+                },
+                "edges": {
+                    "description": "Bin edges for each input",
+                    "items": {
+                        "anyOf": [
+                            {
+                                "items": {
+                                    "type": "number"
+                                },
+                                "type": "array"
+                            },
+                            {
+                                "$ref": "#/$defs/UniformBinning"
+                            }
+                        ]
+                    },
+                    "title": "Edges",
+                    "type": "array"
+                },
+                "content": {
+                    "description": "Bin contents as a flattened array\n        This is a C-ordered array, i.e. content[d1*d2*d3*i0 + d2*d3*i1 + d3*i2 + i3] corresponds\n        to the element at i0 in dimension 0, i1 in dimension 1, etc. and d0 = len(edges[0])-1, etc.\n    ",
+                    "items": {
+                        "anyOf": [
+                            {
+                                "$ref": "#/$defs/Binning"
+                            },
+                            {
+                                "$ref": "#/$defs/MultiBinning"
+                            },
+                            {
+                                "$ref": "#/$defs/Category"
+                            },
+                            {
+                                "$ref": "#/$defs/Formula"
+                            },
+                            {
+                                "$ref": "#/$defs/FormulaRef"
+                            },
+                            {
+                                "$ref": "#/$defs/Transform"
+                            },
+                            {
+                                "$ref": "#/$defs/HashPRNG"
+                            },
+                            {
+                                "type": "number"
+                            }
+                        ]
+                    },
+                    "title": "Content",
+                    "type": "array"
+                },
+                "flow": {
+                    "anyOf": [
+                        {
+                            "$ref": "#/$defs/Binning"
+                        },
+                        {
+                            "$ref": "#/$defs/MultiBinning"
+                        },
+                        {
+                            "$ref": "#/$defs/Category"
+                        },
+                        {
+                            "$ref": "#/$defs/Formula"
+                        },
+                        {
+                            "$ref": "#/$defs/FormulaRef"
+                        },
+                        {
+                            "$ref": "#/$defs/Transform"
+                        },
+                        {
+                            "$ref": "#/$defs/HashPRNG"
+                        },
+                        {
+                            "type": "number"
+                        },
+                        {
+                            "enum": [
+                                "clamp",
+                                "error"
+                            ],
+                            "type": "string"
+                        }
+                    ],
+                    "description": "Overflow behavior for out-of-bounds values",
+                    "title": "Flow"
+                }
+            },
+            "required": [
+                "nodetype",
+                "inputs",
+                "edges",
+                "content",
+                "flow"
+            ],
+            "title": "MultiBinning",
+            "type": "object"
+        },
+        "Transform": {
+            "additionalProperties": false,
+            "description": "A node that rewrites one real or integer input according to a rule as given by a content node\n\nAny downstream nodes will see a different value for the rewritten input\nIf the input is an integer type, the rule output will be cast from a\ndouble to integer type before using. These should be used sparingly and at\nhigh levels in the tree, since they require an allocation.",
+            "properties": {
+                "nodetype": {
+                    "const": "transform",
+                    "title": "Nodetype"
+                },
+                "input": {
+                    "description": "The name of the input to rewrite",
+                    "title": "Input",
+                    "type": "string"
+                },
+                "rule": {
+                    "anyOf": [
+                        {
+                            "$ref": "#/$defs/Binning"
+                        },
+                        {
+                            "$ref": "#/$defs/MultiBinning"
+                        },
+                        {
+                            "$ref": "#/$defs/Category"
+                        },
+                        {
+                            "$ref": "#/$defs/Formula"
+                        },
+                        {
+                            "$ref": "#/$defs/FormulaRef"
+                        },
+                        {
+                            "$ref": "#/$defs/Transform"
+                        },
+                        {
+                            "$ref": "#/$defs/HashPRNG"
+                        },
+                        {
+                            "type": "number"
+                        }
+                    ],
+                    "description": "A subtree that implements the rewrite rule",
+                    "title": "Rule"
+                },
+                "content": {
+                    "anyOf": [
+                        {
+                            "$ref": "#/$defs/Binning"
+                        },
+                        {
+                            "$ref": "#/$defs/MultiBinning"
+                        },
+                        {
+                            "$ref": "#/$defs/Category"
+                        },
+                        {
+                            "$ref": "#/$defs/Formula"
+                        },
+                        {
+                            "$ref": "#/$defs/FormulaRef"
+                        },
+                        {
+                            "$ref": "#/$defs/Transform"
+                        },
+                        {
+                            "$ref": "#/$defs/HashPRNG"
+                        },
+                        {
+                            "type": "number"
+                        }
+                    ],
+                    "description": "A subtree that will be evaluated with transformed values",
+                    "title": "Content"
+                }
+            },
+            "required": [
+                "nodetype",
+                "input",
+                "rule",
+                "content"
+            ],
+            "title": "Transform",
+            "type": "object"
+        },
+        "UniformBinning": {
+            "additionalProperties": false,
+            "description": "Uniform binning description, to be used as the `edges` attribute of Binning or MultiBinning.",
+            "properties": {
+                "n": {
+                    "description": "Number of bins",
+                    "title": "N",
+                    "type": "integer"
+                },
+                "low": {
+                    "description": "Lower edge of first bin",
+                    "title": "Low",
+                    "type": "number"
+                },
+                "high": {
+                    "description": "Higher edge of last bin",
+                    "title": "High",
+                    "type": "number"
+                }
+            },
+            "required": [
+                "n",
+                "low",
+                "high"
+            ],
+            "title": "UniformBinning",
+            "type": "object"
+        },
+        "Variable": {
+            "additionalProperties": false,
+            "description": "An input or output variable",
+            "properties": {
+                "name": {
+                    "title": "Name",
+                    "type": "string"
+                },
+                "type": {
+                    "description": "A string, a 64 bit integer, or a double-precision floating point value",
+                    "enum": [
+                        "string",
+                        "int",
+                        "real"
+                    ],
+                    "title": "Type",
+                    "type": "string"
+                },
+                "description": {
+                    "anyOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "A nice description of what this variable means",
+                    "title": "Description"
+                }
+            },
+            "required": [
+                "name",
+                "type"
+            ],
+            "title": "Variable",
+            "type": "object"
+        }
+    },
+    "additionalProperties": false,
+    "properties": {
+        "schema_version": {
+            "const": 2,
+            "description": "The overall schema version",
+            "title": "Schema Version"
+        },
+        "description": {
+            "anyOf": [
+                {
+                    "type": "string"
+                },
+                {
+                    "type": "null"
+                }
+            ],
+            "default": null,
+            "description": "A nice description of what is in this CorrectionSet means",
+            "title": "Description"
+        },
+        "corrections": {
+            "items": {
+                "$ref": "#/$defs/Correction"
+            },
+            "title": "Corrections",
+            "type": "array"
+        },
+        "compound_corrections": {
+            "anyOf": [
+                {
+                    "items": {
+                        "$ref": "#/$defs/CompoundCorrection"
+                    },
+                    "type": "array"
+                },
+                {
+                    "type": "null"
+                }
+            ],
+            "default": null,
+            "title": "Compound Corrections"
+        }
+    },
+    "required": [
+        "schema_version",
+        "corrections"
+    ],
+    "title": "CorrectionSet",
+    "type": "object"
+}
