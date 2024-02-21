@@ -1,0 +1,73 @@
+#!/bin/bash -e
+APPTAINER_OPTS=
+IGNORE_MOUNTS="/pnfs"
+UNPACKED_IMAGE_DEFAULT="/cvmfs/unpacked.cern.ch/gcr.io/cms-nanoAOD/correctionlib"
+DOCKER_IMAGE_DEFAULT="docker://gcr.io/cms-nanoAOD/correctionlib"
+APPTAINER_OPTS_ENV="--env PYTHONPATH=/app/.venv/lib/python3.11/site-packages"
+CORRECTIONLIB_VERSION_DEFAULT="latest"
+while [ "$#" != 0 ]; do
+  case "$1" in
+    -h|--help)
+      HELP_ARG=""
+      echo "Usage: $0 [-h|--help] ${HELP_ARG}[apptainer-options] [--ignore-mount <dir1[,dir2[,...]]>] [--version|-- <command to run>]"
+      echo "Environment variable CORRECTIONLIB_IMAGE can be set to point to either valid docker/apptainer image or unpacked image path"
+      exit 0
+      ;;
+    --ignore-mount) IGNORE_MOUNTS=$(echo $2 | tr ',' ' '); shift; shift ;;
+    --version)
+      CORRECTIONLIB_VERSION=$2 ; shift ; shift ;;
+    *)
+      # FIXME
+      APPTAINER_OPTS="${APPTAINER_OPTS} $1"
+      shift
+      ;;
+  esac
+done
+
+MOUNT_POINTS=""
+if [ "X${apptainer_BINDPATH}" != "X" ] ; then MOUNT_POINTS="${apptainer_BINDPATH}" ; fi
+if [ -d /cvmfs ] ; then
+  for repo in unpacked grid ; do
+    ls /cvmfs/${repo}.cern.ch >/dev/null 2>&1 || true
+  done
+  MOUNT_POINTS="${MOUNT_POINTS},/cvmfs"
+fi
+for dir in /eos /afs ; do
+  if [ -e $dir ] ; then MOUNT_POINTS="${MOUNT_POINTS},${dir}" ; fi
+done
+
+if [ "X${CORRECTIONLIB_VERSION}" = "X" ] ;then
+  CORRECTIONLIB_VERSION=${CORRECTIONLIB_VERSION_DEFAULT}
+fi
+
+# Check if an image location has been specified manually, set default otherwise
+if [ "X${CORRECTIONLIB_IMAGE}" = "X" ] ;then
+  UNPACKED_IMAGE=${UNPACKED_IMAGE_DEFAULT}:${CORRECTIONLIB_VERSION}
+fi
+
+# Check if the image is available in unpacked form
+if [ ! -d "${UNPACKED_IMAGE}" ] ; then
+  echo "CVMFS unpacked image '${UNPACKED_IMAGE}' not available, resorting to image from registry."
+  UNPACKED_IMAGE=${DOCKER_IMAGE_DEFAULT}:{CORRECTIONLIB_VERSION}
+fi
+
+if [ -e $UNPACKED_IMAGE ] ; then
+  VALID_MOUNT_POINTS=""
+  for dir in $(echo $MOUNT_POINTS | tr ',' '\n' | sort | uniq) ; do
+    if [ "${IGNORE_MOUNTS}" != "" ] ; then
+      hdir=$(echo $dir | sed 's|:.*||')
+      if [ $(echo " ${IGNORE_MOUNTS} " | grep " $hdir " | wc -l) -gt 0 ] ; then continue ; fi
+    fi
+    bind_dir=$(echo $dir | sed 's|.*:||')
+    if [ ! -e ${UNPACKED_IMAGE}/${bind_dir} ] ; then
+      VALID_MOUNT_POINTS="${VALID_MOUNT_POINTS},${dir}"
+    fi
+  done
+  export APPTAINER_BINDPATH=$(echo ${VALID_MOUNT_POINTS} | sed 's|^,||')
+fi
+
+APPTAINER_OPTS="${APPTAINER_OPTS} ${APPTAINER_OPTS_ENV}"
+
+alias correction="apptainer -s exec ${APPTAINER_OPTS} $UNPACKED_IMAGE correction"
+
+echo "correction should now be available."
